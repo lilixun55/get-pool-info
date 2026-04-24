@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>池子信息查询</title>
+  <style>
+    :root {
+      --bg-1: #f5f1e8;
+      --bg-2: #dce9df;
+      --card: rgba(255, 255, 255, 0.88);
+      --line: rgba(45, 69, 58, 0.12);
+      --text: #1d2c26;
+      --muted: #567268;
+      --accent: #0b7a5a;
+      --accent-2: #0d5e78;
+      --danger: #b33a3a;
+      --shadow: 0 22px 60px rgba(25, 52, 44, 0.15);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      min-height: 100vh; font-family: "SimSun", "Songti SC", "STSong", serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.92), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(20,94,120,0.18), transparent 26%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      padding: 28px;
+    }
+    .shell { max-width: 960px; margin: 0 auto; display: grid; gap: 18px; }
+    .hero, .panel {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow); backdrop-filter: blur(18px);
+    }
+    .hero { padding: 16px 28px; display: grid; gap: 6px; }
+    .hero-title-row { display: flex; align-items: flex-start; gap: 16px; }
+    .brand-mark {
+      width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 8px 22px rgba(11,122,90,0.28); position: relative;
+    }
+    .brand-mark::after {
+      content: ""; position: absolute; inset: 10px; border-radius: 6px;
+      border: 2px solid rgba(255,255,255,0.85); opacity: 0.9;
+    }
+    .hero-title-row h1 { margin: 0; font-size: clamp(20px,2.8vw,28px); line-height: 1.1; font-weight: 800; }
+    .hero-lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .panel { padding: 22px; }
+    form { display: grid; gap: 16px; }
+    .field-block { display: grid; gap: 8px; min-width: 0; }
+    .field-label-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 4px; font-size: 14px; font-weight: 700; color: var(--text);
+    }
+    .field-label-row .lbl-en { font-weight: 600; color: var(--muted); font-size: 13px; }
+    .info-tip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 800;
+      color: var(--muted); border: 1px solid rgba(41,68,57,0.18); background: rgba(255,255,255,0.8);
+      cursor: help; flex-shrink: 0;
+    }
+    .field-stack { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .field-stack label { display: block; margin: 0; white-space: nowrap; flex-shrink: 0; min-width: 88px; text-align: left; font-weight: 700; font-size: 14px; }
+    .field-stack input, .field-stack select { flex: 1; margin: 0; min-width: 0; }
+    input, select {
+      width: 100%; border: 1px solid rgba(41,68,57,0.18); border-radius: 14px;
+      padding: 13px 14px; font-size: 15px; color: var(--text); background: rgba(255,255,255,0.9);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, select:focus { outline: none; border-color: rgba(11,122,90,0.6); box-shadow: 0 0 0 4px rgba(11,122,90,0.1); }
+    .field-note { font-size: 13px; color: var(--muted); font-weight: 500; }
+    .actions { display: flex; gap: 12px; align-items: center; }
+    button {
+      border: 0; border-radius: 999px; padding: 12px 20px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .primary { color: #fff; background: linear-gradient(180deg,#2d5d5f 0%,#244750 52%,#1c3a40 100%); box-shadow: 0 12px 28px rgba(45,93,95,0.28); }
+    .secondary { background: rgba(255,255,255,0.72); color: var(--text); border: 1px solid rgba(41,68,57,0.12); }
+    .status { min-height: 26px; font-size: 14px; color: var(--muted); }
+    .status.error { color: var(--danger); }
+    .status.warn { color: #8a6d2f; font-weight: 600; }
+    .status.loading::before {
+      content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px;
+      border-radius: 50%; border: 2px solid rgba(11,122,90,0.18); border-top-color: var(--accent);
+      vertical-align: -2px; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result-card {
+      margin-top: 16px; padding: 20px; border-radius: 18px;
+      background: rgba(255,255,255,0.66); border: 1px solid rgba(41,68,57,0.1);
+    }
+    .result-card h3 { font-size: 16px; margin-bottom: 14px; color: var(--accent-2); }
+    .result-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px;
+    }
+    .result-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+    .result-item .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .result-item .value { font-size: 15px; font-weight: 700; word-break: break-all; }
+    .result-item.full { grid-column: 1 / -1; }
+    .dex-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px;
+      font-weight: 700; color: #0c5b42; background: rgba(11,122,90,0.11);
+    }
+    .rpc-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .result-grid { grid-template-columns: 1fr; }
+      .panel, .hero { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-title-row">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>池子信息查询</h1>
+          <p class="hero-lead">输入池子地址，查询程序ID（DEX类型）及池子余额/流动性。所有数据在浏览器端直接从 Solana RPC 和 DexScreener API 获取。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <form id="query-form">
+        <div class="rpc-section">
+          <label class="field-label-row" for="rpcSelect">
+            <span>RPC 节点 <span class="lbl-en">(RPC Endpoint)</span></span>
+            <span class="info-tip" title="公共节点有限速，如遇 403/429 错误请切换节点或填入付费 RPC">i</span>
+          </label>
+          <div class="field-stack">
+            <label for="rpcSelect">选择节点</label>
+            <select id="rpcSelect" name="rpcSelect">
+              <option value="https://mainnet.helius-rpc.com/?api-key=899d8ca2-8066-46a0-830c-c9dc71685fba">Helius 公共节点</option>
+              <option value="custom">自定义 RPC URL...</option>
+            </select>
+          </div>
+          <div id="customRpcRow" class="field-stack" style="display:none; margin-top: 12px;">
+            <label for="rpcUrl">自定义 URL</label>
+            <input id="rpcUrl" name="rpcUrl" placeholder="https://mainnet.helius-rpc.com/?api-key=你的KEY" />
+          </div>
+          <span class="field-note">公共节点免费但有限速，如频繁出错请切换到你的付费 RPC。</span>
+        </div>
+
+        <div class="field-block">
+          <label class="field-label-row" for="poolAddress">
+            <span>池子地址 <span class="lbl-en">(Pool Address)</span></span>
+          </label>
+          <input id="poolAddress" name="poolAddress" placeholder="输入 Solana 池子账户地址" required />
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="query-program-btn" type="button">查询程序ID</button>
+          <button class="primary" id="query-balance-btn" type="button">查询余额</button>
+          <button class="secondary" id="clear-btn" type="button">清空</button>
+        </div>
+      </form>
+
+      <div id="status" class="status"></div>
+      <div id="result-program"></div>
+      <div id="result-balance"></div>
+    </section>
+  </div>
+
+<script>
+"use strict";
+
+const DEFAULT_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=899d8ca2-8066-46a0-830c-c9dc71685fba";
+const RPC_TIMEOUT_MS = 30000;
+const DEXSCREENER_BASE = "https://api.dexscreener.com/latest/dex/pairs/solana";
+
+const DEX_PROGRAM_IDS = {
+  "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium AMM",
+  "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C": "Raydium CPMM",
+  "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK": "Raydium CLMM",
+  "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo": "Meteora DLMM",
+  "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG": "Meteora DAMM V2",
+  "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB": "Meteora Pool",
+  "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "Orca Whirlpool",
+  "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA": "PumpSwap",
+};
+
+const rpcSelect = document.getElementById("rpcSelect");
+const rpcUrlInput = document.getElementById("rpcUrl");
+const customRpcRow = document.getElementById("customRpcRow");
+const statusEl = document.getElementById("status");
+const resultProgramEl = document.getElementById("result-program");
+const resultBalanceEl = document.getElementById("result-balance");
+const poolAddressInput = document.getElementById("poolAddress");
+
+rpcSelect.addEventListener("change", () => {
+  if (rpcSelect.value === "custom") {
+    customRpcRow.style.display = "";
+    rpcUrlInput.focus();
+  } else {
+    customRpcRow.style.display = "none";
+    rpcUrlInput.value = "";
+  }
+});
+
+function getRpcUrl() {
+  if (rpcSelect.value === "custom") {
+    const custom = rpcUrlInput.value.trim();
+    if (custom) return custom;
+  }
+  return rpcSelect.value || DEFAULT_RPC_URL;
+}
+
+function setStatus(msg, type = "") {
+  statusEl.textContent = msg || "";
+  statusEl.className = "status" + (type ? ` ${type}` : "");
+}
+
+async function rpcCall(method, params) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+  try {
+    const res = await fetch(getRpcUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) {
+      const msg = typeof data.error === "object" ? data.error.message : String(data.error);
+      throw new Error(`RPC 错误：${msg}`);
+    }
+    return data.result;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("RPC 请求超时");
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getAccountInfo(address) {
+  const result = await rpcCall("getAccountInfo", [address, { encoding: "jsonParsed", commitment: "confirmed" }]);
+  return result?.value || null;
+}
+
+function getDexName(programId) {
+  return DEX_PROGRAM_IDS[programId] || "未知DEX";
+}
+
+async function handleQueryProgram() {
+  const address = poolAddressInput.value.trim();
+  if (!address) { setStatus("请输入池子地址。", "error"); return; }
+
+  const btn = document.getElementById("query-program-btn");
+  btn.disabled = true;
+  resultProgramEl.innerHTML = "";
+  setStatus("正在查询程序ID...", "loading");
+
+  try {
+    const accountInfo = await getAccountInfo(address);
+    if (!accountInfo) {
+      setStatus("查询失败：账户不存在或网络错误", "error");
+      return;
+    }
+
+    const programId = accountInfo.owner;
+    if (!programId) {
+      setStatus("无法获取程序ID", "error");
+      return;
+    }
+
+    const dexName = getDexName(programId);
+    const isExecutable = accountInfo.executable ? "是" : "否";
+    const lamports = accountInfo.lamports;
+    const rentEpoch = accountInfo.rentEpoch;
+    const dataSize = accountInfo.data?.parsed ? "jsonParsed" : (accountInfo.data?.length ?? "-");
+
+    resultProgramEl.innerHTML = `
+      <div class="result-card">
+        <h3>程序ID 查询结果</h3>
+        <div class="result-grid">
+          <div class="result-item full"><div class="label">程序ID (Owner)</div><div class="value">${programId}</div></div>
+          <div class="result-item"><div class="label">DEX 类型</div><div class="value"><span class="dex-badge">${dexName}</span></div></div>
+          <div class="result-item"><div class="label">可执行</div><div class="value">${isExecutable}</div></div>
+          <div class="result-item"><div class="label">Lamports</div><div class="value">${lamports ?? "-"}</div></div>
+          <div class="result-item"><div class="label">租金周期</div><div class="value">${rentEpoch ?? "-"}</div></div>
+        </div>
+      </div>`;
+
+    setStatus(`查询完成：${dexName}`);
+  } catch (e) {
+    setStatus(e.message || "查询失败", "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleQueryBalance() {
+  const address = poolAddressInput.value.trim();
+  if (!address) { setStatus("请输入池子地址。", "error"); return; }
+
+  const btn = document.getElementById("query-balance-btn");
+  btn.disabled = true;
+  resultBalanceEl.innerHTML = "";
+  setStatus("正在查询池子余额...", "loading");
+
+  try {
+    const url = `${DEXSCREENER_BASE}/${address}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`DexScreener HTTP ${res.status}`);
+    const payload = await res.json();
+
+    const pairs = payload.pairs || [];
+    if (!pairs.length) {
+      setStatus("DexScreener 未返回该池子数据", "warn");
+      return;
+    }
+
+    const pair = pairs[0];
+    const base = pair.baseToken || {};
+    const quote = pair.quoteToken || {};
+    const liquidity = pair.liquidity || {};
+
+    resultBalanceEl.innerHTML = `
+      <div class="result-card">
+        <h3>余额 / 流动性 查询结果 <span style="font-size:12px;color:var(--muted);font-weight:400;">来源: DexScreener</span></h3>
+        <div class="result-grid">
+          <div class="result-item"><div class="label">DEX</div><div class="value"><span class="dex-badge">${pair.dexId || "-"}</span></div></div>
+          <div class="result-item"><div class="label">池子地址</div><div class="value">${pair.pairAddress || address}</div></div>
+          <div class="result-item"><div class="label">Token A</div><div class="value">${base.symbol || "-"} <span style="color:var(--muted);font-size:12px;font-weight:400;">${base.address || ""}</span></div></div>
+          <div class="result-item"><div class="label">Token B</div><div class="value">${quote.symbol || "-"} <span style="color:var(--muted);font-size:12px;font-weight:400;">${quote.address || ""}</span></div></div>
+          <div class="result-item"><div class="label">余额 A (base)</div><div class="value">${liquidity.base ?? "-"}</div></div>
+          <div class="result-item"><div class="label">余额 B (quote)</div><div class="value">${liquidity.quote ?? "-"}</div></div>
+          <div class="result-item"><div class="label">流动性 (USD)</div><div class="value" style="color:var(--accent);">$${liquidity.usd != null ? Number(liquidity.usd).toLocaleString() : "-"}</div></div>
+          <div class="result-item"><div class="label">价格 (USD)</div><div class="value">${pair.priceUsd != null ? `$${Number(pair.priceUsd).toLocaleString()}` : "-"}</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted);">DexScreener 返回的是池子流动性口径（base/quote），非精确链上余额。</div>
+      </div>`;
+
+    setStatus("余额查询完成");
+  } catch (e) {
+    setStatus(e.message || "余额查询失败", "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("query-program-btn").addEventListener("click", handleQueryProgram);
+document.getElementById("query-balance-btn").addEventListener("click", handleQueryBalance);
+document.getElementById("clear-btn").addEventListener("click", () => {
+  poolAddressInput.value = "";
+  rpcSelect.value = DEFAULT_RPC_URL;
+  rpcUrlInput.value = "";
+  customRpcRow.style.display = "none";
+  resultProgramEl.innerHTML = "";
+  resultBalanceEl.innerHTML = "";
+  setStatus("");
+});
+</script>
+</body>
+</html>
